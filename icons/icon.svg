@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="VisaSnap icon">
+  <rect width="512" height="512" rx="96" fill="#0f766e"/>
+  <rect x="92" y="80" width="328" height="352" rx="44" fill="#ffffff"/>
+  <rect x="124" y="112" width="264" height="288" rx="28" fill="#eef4f8"/>
+  <circle cx="256" cy="213" r="58" fill="#20242a"/>
+  <path d="M151 352c18-64 58-99 105-99s87 35 105 99" fill="#20242a"/>
+  <path d="M156 127h78M278 127h78M156 385h200" stroke="#0f766e" stroke-width="18" stroke-linecap="round"/>
+</svg>

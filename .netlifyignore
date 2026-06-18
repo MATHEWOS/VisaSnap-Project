@@ -1,0 +1,9 @@
+dist/
+DEPLOYMENT.md
+STORE_LAUNCH.md
+MONETIZATION.md
+PROJECT.md
+README.txt
+package.json
+vercel.json
+*.zip

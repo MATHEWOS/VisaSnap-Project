@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0891b2" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#06141b" media="(prefers-color-scheme: dark)">
+    <meta name="description" content="Create passport and e-visa photos from your phone, even offline.">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="VisaSnap">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>VisaSnap</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Passport photo + e-visa links</p>
+          <h1>VisaSnap</h1>
+        </div>
+        <div class="topbar-actions">
+          <button class="install-button" id="installButton" type="button" hidden>Install</button>
+          <button class="icon-button" id="themeButton" type="button" aria-label="Toggle theme" title="Toggle theme">
+            <span aria-hidden="true">●</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="app-status" id="offlineStatus" role="status" hidden>
+        Offline mode is on. Photo tools still work; external visa links need internet.
+      </div>
+
+      <div class="app-status" id="installStatus" role="status" hidden>
+        On iPhone or iPad, use Share, then Add to Home Screen.
+      </div>
+
+      <nav class="tabs" aria-label="App sections">
+        <button class="tab active" type="button" data-panel="photoPanel">Photo</button>
+        <button class="tab" type="button" data-panel="visaPanel">E-visa</button>
+      </nav>
+
+      <section class="panel active" id="photoPanel">
+        <div class="capture-actions">
+          <label class="primary-action">
+            <span>Take Photo</span>
+            <input id="cameraInput" type="file" accept="image/*">
+          </label>
+          <label class="secondary-action">
+            <span>Upload</span>
+            <input id="galleryInput" type="file" accept="image/*">
+          </label>
+        </div>
+
+        <div class="photo-workspace">
+          <div class="preview-frame">
+            <canvas id="photoCanvas" width="600" height="600" aria-label="Passport photo preview"></canvas>
+            <div class="empty-state" id="emptyState">
+              <strong>Add a face photo</strong>
+              <span>Use a plain background, face forward, no filters, and even lighting.</span>
+            </div>
+          </div>
+
+          <form class="controls" id="photoControls">
+            <label>
+              Country size
+              <select id="sizeSelect"></select>
+            </label>
+            <label>
+              Zoom
+              <input id="zoomRange" type="range" min="0.7" max="2.4" step="0.01" value="1">
+            </label>
+            <label>
+              Move horizontal
+              <input id="xRange" type="range" min="-1" max="1" step="0.01" value="0">
+            </label>
+            <label>
+              Move vertical
+              <input id="yRange" type="range" min="-1" max="1" step="0.01" value="0">
+            </label>
+            <label>
+              Background
+              <select id="backgroundSelect">
+                <option value="#ffffff">White</option>
+                <option value="#f4f7fb">Off white</option>
+                <option value="#dceeff">Light blue</option>
+              </select>
+            </label>
+            <label>
+              Photo cleanup
+              <select id="enhanceSelect">
+                <option value="auto">Auto background + natural finish</option>
+                <option value="enhance">Natural finish only</option>
+                <option value="off">Original crop</option>
+              </select>
+            </label>
+          </form>
+        </div>
+
+        <div class="quality-grid" aria-label="Photo checklist">
+          <div><strong id="outputSize">600 x 600 px</strong><span>Output pixels</span></div>
+          <div><strong>JPG</strong><span>Download format</span></div>
+          <div><strong>2 MB max</strong><span>Target upload size</span></div>
+        </div>
+
+        <button class="download-button" id="downloadButton" type="button" disabled>Download passport photo</button>
+        <p class="fine-print" id="enhanceStatus">Auto cleanup works best with a plain wall behind you and even lighting.</p>
+        <p class="fine-print">Always compare the final image with the e-visa portal's current photo rules before submitting.</p>
+        <div class="monetization-panel" id="photoMonetization" hidden></div>
+      </section>
+
+      <section class="panel" id="visaPanel">
+        <label class="search-box">
+          Destination country
+          <input id="countrySearch" type="search" placeholder="Search by country">
+        </label>
+
+        <div class="country-list" id="countryList" aria-live="polite"></div>
+
+        <article class="visa-result" id="visaResult">
+          <p class="empty-copy">Choose a destination to see the official e-visa or immigration application link.</p>
+        </article>
+        <div class="monetization-panel" id="visaMonetization" hidden></div>
+      </section>
+
+      <footer class="app-footer">
+        <a href="privacy.html">Privacy</a>
+        <span aria-hidden="true">/</span>
+        <span>VisaSnap works offline after first load.</span>
+      </footer>
+    </main>
+
+    <script src="monetization.js" defer></script>
+    <script src="app.js" defer></script>
+  </body>
+</html>

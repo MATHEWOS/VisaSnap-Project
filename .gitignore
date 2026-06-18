@@ -1,0 +1,7 @@
+# Local deployment state and generated bundles
+.netlify/
+dist/
+
+# OS/editor noise
+Thumbs.db
+.DS_Store
