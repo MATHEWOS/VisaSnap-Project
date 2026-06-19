@@ -1,4 +1,4 @@
-const CACHE_NAME = "visasnap-pwa-v12";
+const CACHE_NAME = "visasnap-pwa-v13";
 const APP_SHELL = [
   "./",
   "./index.html",

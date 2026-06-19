@@ -105,7 +105,6 @@ const state = {
   offsetX: 0,
   offsetY: 0,
   bg: "#ffffff",
-  enhanceMode: "off",
   size: photoSizes[0]
 };
 
@@ -119,10 +118,8 @@ const zoomRange = document.querySelector("#zoomRange");
 const xRange = document.querySelector("#xRange");
 const yRange = document.querySelector("#yRange");
 const backgroundSelect = document.querySelector("#backgroundSelect");
-const enhanceSelect = document.querySelector("#enhanceSelect");
 const downloadButton = document.querySelector("#downloadButton");
 const outputSize = document.querySelector("#outputSize");
-const enhanceStatus = document.querySelector("#enhanceStatus");
 const countrySearch = document.querySelector("#countrySearch");
 const countryList = document.querySelector("#countryList");
 const visaResult = document.querySelector("#visaResult");
@@ -226,11 +223,6 @@ function bindEvents() {
     drawPhoto();
   });
 
-  enhanceSelect.addEventListener("change", () => {
-    state.enhanceMode = enhanceSelect.value;
-    drawPhoto();
-  });
-
   downloadButton.addEventListener("click", downloadPhoto);
 
   countrySearch.addEventListener("input", () => {
@@ -319,230 +311,7 @@ function drawPhoto() {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "medium";
   ctx.drawImage(state.image, x, y, drawWidth, drawHeight);
-  applyPhotoEnhancements();
   drawGuides();
-}
-
-function applyPhotoEnhancements() {
-  if (state.enhanceMode === "off") {
-    enhanceStatus.textContent = "Original mode is on. The photo is not brightened, sharpened, filtered, mirrored, or flipped.";
-    return;
-  }
-
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imageData.data;
-  const background = hexToRgb(state.bg);
-  const averageEdge = sampleEdgeColor(data, canvas.width, canvas.height);
-  const tolerance = estimateBackgroundTolerance(data, canvas.width, canvas.height, averageEdge);
-  const backgroundMask = buildEdgeConnectedBackgroundMask(data, canvas.width, canvas.height, averageEdge, tolerance);
-  let replacedPixels = 0;
-
-  for (let i = 0; i < data.length; i += 4) {
-    const pixelIndex = i / 4;
-    if (!backgroundMask[pixelIndex]) continue;
-
-    const distance = colorDistance(data[i], data[i + 1], data[i + 2], averageEdge.r, averageEdge.g, averageEdge.b);
-    const edgeWeight = Math.max(0.82, backgroundBlendWeight(distance, tolerance));
-
-    if (state.enhanceMode === "auto") {
-      data[i] = Math.round(mix(data[i], background.r, edgeWeight));
-      data[i + 1] = Math.round(mix(data[i + 1], background.g, edgeWeight));
-      data[i + 2] = Math.round(mix(data[i + 2], background.b, edgeWeight));
-      if (edgeWeight > 0.72) replacedPixels += 1;
-    }
-  }
-
-  ctx.putImageData(imageData, 0, 0);
-
-  const percent = Math.round((replacedPixels / (canvas.width * canvas.height)) * 100);
-  enhanceStatus.textContent = percent > 8
-    ? `Only the likely plain background was replaced with ${backgroundSelect.selectedOptions[0].textContent.toLowerCase()}. The face and photo detail were not enhanced.`
-    : "No strong plain background was detected. The photo was left mostly unchanged.";
-}
-
-function buildEdgeConnectedBackgroundMask(data, width, height, edgeColor, tolerance) {
-  const visited = new Uint8Array(width * height);
-  const queue = [];
-  const hardTolerance = Math.min(82, Math.max(36, tolerance * 1.08));
-  const softTolerance = Math.min(110, hardTolerance + 24);
-
-  function enqueueIfBackground(x, y) {
-    if (x < 0 || y < 0 || x >= width || y >= height) return;
-    const index = y * width + x;
-    if (visited[index]) return;
-    if (isProtectedSubjectArea(x, y, width, height)) return;
-
-    const pixel = getPixel(data, width, x, y);
-    const distance = colorDistance(pixel.r, pixel.g, pixel.b, edgeColor.r, edgeColor.g, edgeColor.b);
-    if (distance > hardTolerance) return;
-
-    visited[index] = 1;
-    queue.push(index);
-  }
-
-  for (let x = 0; x < width; x += 1) {
-    enqueueIfBackground(x, 0);
-    enqueueIfBackground(x, height - 1);
-  }
-
-  for (let y = 0; y < height; y += 1) {
-    enqueueIfBackground(0, y);
-    enqueueIfBackground(width - 1, y);
-  }
-
-  for (let cursor = 0; cursor < queue.length; cursor += 1) {
-    const index = queue[cursor];
-    const x = index % width;
-    const y = Math.floor(index / width);
-
-    enqueueIfBackground(x + 1, y);
-    enqueueIfBackground(x - 1, y);
-    enqueueIfBackground(x, y + 1);
-    enqueueIfBackground(x, y - 1);
-  }
-
-  return softenBackgroundMask(visited, data, width, height, edgeColor, softTolerance);
-}
-
-function isProtectedSubjectArea(x, y, width, height) {
-  const normalizedX = x / width;
-  const normalizedY = y / height;
-
-  if (normalizedX > 0.2 && normalizedX < 0.8 && normalizedY > 0.12 && normalizedY < 0.92) {
-    return true;
-  }
-
-  if (normalizedX > 0.12 && normalizedX < 0.88 && normalizedY > 0.44 && normalizedY < 0.96) {
-    return true;
-  }
-
-  return false;
-}
-
-function softenBackgroundMask(mask, data, width, height, edgeColor, softTolerance) {
-  const softened = new Uint8Array(mask);
-
-  for (let y = 1; y < height - 1; y += 1) {
-    for (let x = 1; x < width - 1; x += 1) {
-      const index = y * width + x;
-      if (softened[index]) continue;
-
-      const nearBackground = mask[index - 1] || mask[index + 1] || mask[index - width] || mask[index + width];
-      if (!nearBackground) continue;
-
-      const pixel = getPixel(data, width, x, y);
-      const distance = colorDistance(pixel.r, pixel.g, pixel.b, edgeColor.r, edgeColor.g, edgeColor.b);
-      if (distance <= softTolerance) softened[index] = 1;
-    }
-  }
-
-  return softened;
-}
-
-function sampleEdgeColor(data, width, height) {
-  const samples = [];
-  const step = Math.max(4, Math.floor(Math.min(width, height) / 36));
-  const inset = Math.max(2, Math.floor(Math.min(width, height) * 0.035));
-
-  for (let x = inset; x < width - inset; x += step) {
-    samples.push(getPixel(data, width, x, inset));
-    samples.push(getPixel(data, width, x, height - inset - 1));
-  }
-
-  for (let y = inset; y < height - inset; y += step) {
-    samples.push(getPixel(data, width, inset, y));
-    samples.push(getPixel(data, width, width - inset - 1, y));
-  }
-
-  const filtered = rejectColorOutliers(samples);
-  return averageColor(filtered.length ? filtered : samples);
-}
-
-function rejectColorOutliers(samples) {
-  const average = averageColor(samples);
-  const distances = samples.map((sample) => colorDistance(sample.r, sample.g, sample.b, average.r, average.g, average.b));
-  const sorted = [...distances].sort((a, b) => a - b);
-  const cutoff = sorted[Math.floor(sorted.length * 0.72)] || 64;
-  return samples.filter((sample, index) => distances[index] <= cutoff + 18);
-}
-
-function estimateBackgroundTolerance(data, width, height, edgeColor) {
-  const distances = [];
-  const step = Math.max(6, Math.floor(Math.min(width, height) / 28));
-
-  for (let y = 0; y < height; y += step) {
-    for (let x = 0; x < width; x += step) {
-      if (x > width * 0.22 && x < width * 0.78 && y > height * 0.16 && y < height * 0.9) continue;
-      const pixel = getPixel(data, width, x, y);
-      distances.push(colorDistance(pixel.r, pixel.g, pixel.b, edgeColor.r, edgeColor.g, edgeColor.b));
-    }
-  }
-
-  distances.sort((a, b) => a - b);
-  const median = distances[Math.floor(distances.length * 0.5)] || 30;
-  const upper = distances[Math.floor(distances.length * 0.78)] || 90;
-  return clamp(Math.max(34, median * 1.55, upper * 0.72), 34, 118);
-}
-
-function backgroundBlendWeight(distance, tolerance) {
-  const start = tolerance * 0.72;
-  const end = tolerance * 1.55;
-  if (distance <= start) return 1;
-  if (distance >= end) return 0;
-  const t = (distance - start) / (end - start);
-  return 1 - smoothstep(t);
-}
-
-function getPixel(data, width, x, y) {
-  const index = (y * width + x) * 4;
-  return { r: data[index], g: data[index + 1], b: data[index + 2] };
-}
-
-function averageColor(colors) {
-  const total = colors.reduce((sum, color) => ({
-    r: sum.r + color.r,
-    g: sum.g + color.g,
-    b: sum.b + color.b
-  }), { r: 0, g: 0, b: 0 });
-
-  return {
-    r: total.r / colors.length,
-    g: total.g / colors.length,
-    b: total.b / colors.length
-  };
-}
-
-function hexToRgb(hex) {
-  const value = hex.replace("#", "");
-  const numeric = Number.parseInt(value.length === 3
-    ? value.split("").map((char) => char + char).join("")
-    : value, 16);
-
-  return {
-    r: (numeric >> 16) & 255,
-    g: (numeric >> 8) & 255,
-    b: numeric & 255
-  };
-}
-
-function colorDistance(r1, g1, b1, r2, g2, b2) {
-  const dr = r1 - r2;
-  const dg = g1 - g2;
-  const db = b1 - b2;
-  return Math.sqrt(dr * dr + dg * dg + db * db);
-}
-
-function smoothstep(value) {
-  const x = clamp(value, 0, 1);
-  return x * x * (3 - 2 * x);
-}
-
-function mix(a, b, weight) {
-  return a * (1 - weight) + b * weight;
-}
-
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
 }
 
 function drawGuides() {

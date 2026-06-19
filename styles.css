@@ -443,12 +443,6 @@ input[type="range"] {
   margin: 12px 2px 0;
 }
 
-#enhanceStatus {
-  min-height: 18px;
-  color: var(--muted);
-  font-weight: 800;
-}
-
 .search-box {
   margin-bottom: 12px;
 }
@@ -678,7 +672,6 @@ input[type="range"] {
 
   #photoPanel .capture-actions,
   #photoPanel .download-button,
-  #photoPanel #enhanceStatus,
   #photoPanel .fine-print {
     grid-column: 1 / -1;
   }
