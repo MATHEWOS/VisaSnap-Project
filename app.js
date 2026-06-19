@@ -253,28 +253,137 @@ function switchPanelFromHash() {
   }
 }
 
-function loadSelectedFile(event) {
+async function loadSelectedFile(event) {
   const [file] = event.target.files;
   if (!file) return;
 
-  const reader = new FileReader();
-  reader.onload = () => {
+  try {
+    state.image = await loadUnmirroredImage(file);
+    state.zoom = 1;
+    state.offsetX = 0;
+    state.offsetY = 0;
+    zoomRange.value = "1";
+    xRange.value = "0";
+    yRange.value = "0";
+    emptyState.classList.add("hidden");
+    downloadButton.disabled = false;
+    drawPhoto();
+  } catch (error) {
+    console.warn("Photo could not be loaded", error);
+  }
+}
+
+async function loadUnmirroredImage(file) {
+  const orientation = await readExifOrientation(file);
+  const source = await decodeImageWithoutBrowserOrientation(file);
+  return normalizeImageOrientation(source, orientation);
+}
+
+async function decodeImageWithoutBrowserOrientation(file) {
+  if ("createImageBitmap" in window) {
+    try {
+      return await createImageBitmap(file, { imageOrientation: "none" });
+    } catch (error) {
+      console.warn("Falling back to browser image decode", error);
+    }
+  }
+
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
     const image = new Image();
     image.onload = () => {
-      state.image = image;
-      state.zoom = 1;
-      state.offsetX = 0;
-      state.offsetY = 0;
-      zoomRange.value = "1";
-      xRange.value = "0";
-      yRange.value = "0";
-      emptyState.classList.add("hidden");
-      downloadButton.disabled = false;
-      drawPhoto();
+      URL.revokeObjectURL(url);
+      resolve(image);
     };
-    image.src = reader.result;
-  };
-  reader.readAsDataURL(file);
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Image decode failed"));
+    };
+    image.src = url;
+  });
+}
+
+function normalizeImageOrientation(source, orientation) {
+  const rotation = rotationFromExifOrientation(orientation);
+  const swapDimensions = rotation === 90 || rotation === 270;
+  const normalized = document.createElement("canvas");
+  normalized.width = swapDimensions ? source.height : source.width;
+  normalized.height = swapDimensions ? source.width : source.height;
+
+  const normalizedCtx = normalized.getContext("2d");
+  normalizedCtx.imageSmoothingEnabled = true;
+  normalizedCtx.imageSmoothingQuality = "medium";
+
+  if (rotation === 90) {
+    normalizedCtx.translate(normalized.width, 0);
+    normalizedCtx.rotate(Math.PI / 2);
+  } else if (rotation === 180) {
+    normalizedCtx.translate(normalized.width, normalized.height);
+    normalizedCtx.rotate(Math.PI);
+  } else if (rotation === 270) {
+    normalizedCtx.translate(0, normalized.height);
+    normalizedCtx.rotate(-Math.PI / 2);
+  }
+
+  normalizedCtx.drawImage(source, 0, 0);
+
+  if ("close" in source) source.close();
+  return normalized;
+}
+
+function rotationFromExifOrientation(orientation) {
+  if (orientation === 3 || orientation === 4) return 180;
+  if (orientation === 5 || orientation === 6) return 90;
+  if (orientation === 7 || orientation === 8) return 270;
+  return 0;
+}
+
+async function readExifOrientation(file) {
+  const buffer = await file.slice(0, 128 * 1024).arrayBuffer();
+  const view = new DataView(buffer);
+
+  if (view.byteLength < 4 || view.getUint16(0, false) !== 0xffd8) return 1;
+
+  let offset = 2;
+  while (offset + 4 < view.byteLength) {
+    const marker = view.getUint16(offset, false);
+    offset += 2;
+    if ((marker & 0xff00) !== 0xff00) break;
+
+    const size = view.getUint16(offset, false);
+    offset += 2;
+    if (marker === 0xffe1 && offset + size <= view.byteLength) {
+      return readOrientationFromExifSegment(view, offset, size - 2);
+    }
+    offset += size - 2;
+  }
+
+  return 1;
+}
+
+function readOrientationFromExifSegment(view, offset, length) {
+  if (length < 14) return 1;
+  const exifHeader = [0x45, 0x78, 0x69, 0x66, 0x00, 0x00];
+  for (let i = 0; i < exifHeader.length; i += 1) {
+    if (view.getUint8(offset + i) !== exifHeader[i]) return 1;
+  }
+
+  const tiffOffset = offset + 6;
+  const littleEndian = view.getUint16(tiffOffset, false) === 0x4949;
+  const firstIfdOffset = view.getUint32(tiffOffset + 4, littleEndian);
+  const ifdOffset = tiffOffset + firstIfdOffset;
+  if (ifdOffset + 2 > view.byteLength) return 1;
+
+  const entryCount = view.getUint16(ifdOffset, littleEndian);
+  for (let i = 0; i < entryCount; i += 1) {
+    const entryOffset = ifdOffset + 2 + i * 12;
+    if (entryOffset + 12 > view.byteLength) return 1;
+    if (view.getUint16(entryOffset, littleEndian) === 0x0112) {
+      return view.getUint16(entryOffset + 8, littleEndian);
+    }
+  }
+
+  return 1;
 }
 
 function resizeCanvas() {
