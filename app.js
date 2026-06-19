@@ -334,19 +334,22 @@ function applyPhotoEnhancements() {
   const background = hexToRgb(state.bg);
   const averageEdge = sampleEdgeColor(data, canvas.width, canvas.height);
   const tolerance = estimateBackgroundTolerance(data, canvas.width, canvas.height, averageEdge);
+  const backgroundMask = buildEdgeConnectedBackgroundMask(data, canvas.width, canvas.height, averageEdge, tolerance);
   let replacedPixels = 0;
 
   for (let i = 0; i < data.length; i += 4) {
-    const distance = colorDistance(data[i], data[i + 1], data[i + 2], averageEdge.r, averageEdge.g, averageEdge.b);
-    const edgeWeight = backgroundBlendWeight(distance, tolerance);
+    const pixelIndex = i / 4;
+    if (!backgroundMask[pixelIndex]) continue;
 
-    if (state.enhanceMode === "auto" && edgeWeight > 0) {
+    const distance = colorDistance(data[i], data[i + 1], data[i + 2], averageEdge.r, averageEdge.g, averageEdge.b);
+    const edgeWeight = Math.max(0.82, backgroundBlendWeight(distance, tolerance));
+
+    if (state.enhanceMode === "auto") {
       data[i] = Math.round(mix(data[i], background.r, edgeWeight));
       data[i + 1] = Math.round(mix(data[i + 1], background.g, edgeWeight));
       data[i + 2] = Math.round(mix(data[i + 2], background.b, edgeWeight));
       if (edgeWeight > 0.72) replacedPixels += 1;
     }
-
   }
 
   ctx.putImageData(imageData, 0, 0);
@@ -355,6 +358,85 @@ function applyPhotoEnhancements() {
   enhanceStatus.textContent = percent > 8
     ? `Only the likely plain background was replaced with ${backgroundSelect.selectedOptions[0].textContent.toLowerCase()}. The face and photo detail were not enhanced.`
     : "No strong plain background was detected. The photo was left mostly unchanged.";
+}
+
+function buildEdgeConnectedBackgroundMask(data, width, height, edgeColor, tolerance) {
+  const visited = new Uint8Array(width * height);
+  const queue = [];
+  const hardTolerance = Math.min(82, Math.max(36, tolerance * 1.08));
+  const softTolerance = Math.min(110, hardTolerance + 24);
+
+  function enqueueIfBackground(x, y) {
+    if (x < 0 || y < 0 || x >= width || y >= height) return;
+    const index = y * width + x;
+    if (visited[index]) return;
+    if (isProtectedSubjectArea(x, y, width, height)) return;
+
+    const pixel = getPixel(data, width, x, y);
+    const distance = colorDistance(pixel.r, pixel.g, pixel.b, edgeColor.r, edgeColor.g, edgeColor.b);
+    if (distance > hardTolerance) return;
+
+    visited[index] = 1;
+    queue.push(index);
+  }
+
+  for (let x = 0; x < width; x += 1) {
+    enqueueIfBackground(x, 0);
+    enqueueIfBackground(x, height - 1);
+  }
+
+  for (let y = 0; y < height; y += 1) {
+    enqueueIfBackground(0, y);
+    enqueueIfBackground(width - 1, y);
+  }
+
+  for (let cursor = 0; cursor < queue.length; cursor += 1) {
+    const index = queue[cursor];
+    const x = index % width;
+    const y = Math.floor(index / width);
+
+    enqueueIfBackground(x + 1, y);
+    enqueueIfBackground(x - 1, y);
+    enqueueIfBackground(x, y + 1);
+    enqueueIfBackground(x, y - 1);
+  }
+
+  return softenBackgroundMask(visited, data, width, height, edgeColor, softTolerance);
+}
+
+function isProtectedSubjectArea(x, y, width, height) {
+  const normalizedX = x / width;
+  const normalizedY = y / height;
+
+  if (normalizedX > 0.2 && normalizedX < 0.8 && normalizedY > 0.12 && normalizedY < 0.92) {
+    return true;
+  }
+
+  if (normalizedX > 0.12 && normalizedX < 0.88 && normalizedY > 0.44 && normalizedY < 0.96) {
+    return true;
+  }
+
+  return false;
+}
+
+function softenBackgroundMask(mask, data, width, height, edgeColor, softTolerance) {
+  const softened = new Uint8Array(mask);
+
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 1; x < width - 1; x += 1) {
+      const index = y * width + x;
+      if (softened[index]) continue;
+
+      const nearBackground = mask[index - 1] || mask[index + 1] || mask[index - width] || mask[index + width];
+      if (!nearBackground) continue;
+
+      const pixel = getPixel(data, width, x, y);
+      const distance = colorDistance(pixel.r, pixel.g, pixel.b, edgeColor.r, edgeColor.g, edgeColor.b);
+      if (distance <= softTolerance) softened[index] = 1;
+    }
+  }
+
+  return softened;
 }
 
 function sampleEdgeColor(data, width, height) {
