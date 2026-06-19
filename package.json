@@ -4,7 +4,11 @@
   "private": true,
   "description": "VisaSnap static installable PWA.",
   "scripts": {
-    "check": "node --check app.js && node --check sw.js",
-    "start": "python -m http.server 4173 --bind 127.0.0.1"
+    "check": "node --check app.js && node --check sw.js && node --check tools/prepare-store-assets.js",
+    "start": "python -m http.server 4173 --bind 127.0.0.1",
+    "store:prepare": "node tools/prepare-store-assets.js",
+    "cap:sync": "npm run store:prepare && npx cap sync",
+    "cap:android": "npm run store:prepare && npx cap add android && npx cap open android",
+    "cap:ios": "npm run store:prepare && npx cap add ios && npx cap open ios"
   }
 }

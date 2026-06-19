@@ -1,78 +1,72 @@
-# VisaSnap iOS and Android Launch Plan
+# VisaSnap App Store and Play Store Launch Plan
 
-## Phase 1: Publish the PWA
+VisaSnap is ready as a PWA test deployment. For App Store and Play Store distribution, ship a native wrapper around the same local photo tool and keep production paused until the phone test passes.
 
-Publish this folder as a static HTTPS site. Netlify, Vercel, Cloudflare Pages, GitHub Pages, or any HTTPS static host will work.
+## Current Test URL
 
-Required production checks:
+- Test app: https://test--visasnap-photo-tool.netlify.app
+- Privacy policy: https://test--visasnap-photo-tool.netlify.app/privacy
+- Package name / bundle ID draft: `com.visasnap.phototool`
 
-- `https://your-domain.example/manifest.webmanifest` returns JSON.
-- `https://your-domain.example/sw.js` is not aggressively cached.
-- `https://your-domain.example/privacy.html` is public.
-- Android Chrome can install the app from the browser.
-- iPhone Safari can add the app with Share > Add to Home Screen.
-- Airplane mode still opens the photo tool after one online load.
+## Local Store Prep
 
-## Phase 2: Android Play Store
-
-Recommended Android path: Trusted Web Activity.
-
-You will need:
-
-- Published HTTPS URL.
-- Google Play Console developer account.
-- App package name, for example `com.visasnap.app`.
-- Android signing key.
-- A Digital Asset Links file at `/.well-known/assetlinks.json` after the Android signing certificate fingerprint is known.
-
-Typical Bubblewrap flow after the PWA is live:
+Run these from the project folder:
 
 ```bash
-npm install -g @bubblewrap/cli
-bubblewrap init --manifest https://your-domain.example/manifest.webmanifest
-bubblewrap build
+npm run check
+npm run store:prepare
 ```
 
-Then upload the generated Android App Bundle to Google Play Console.
+`npm run store:prepare` copies the static PWA files into `www/`, which is the web bundle Capacitor will place inside the iOS and Android apps.
 
-## Phase 3: iOS App Store
+## Native Wrapper Setup
 
-There is no Apple App Store submission for a plain PWA. For App Store distribution, wrap the web app with Capacitor and submit from Xcode.
-
-You will need:
-
-- A Mac with Xcode.
-- Apple Developer Program account.
-- Bundle identifier, for example `com.visasnap.app`.
-- App Store Connect listing, screenshots, support URL, and privacy policy URL.
-
-Typical Capacitor setup:
+Install Capacitor when you are ready to create native projects:
 
 ```bash
-npm install @capacitor/core @capacitor/cli @capacitor/ios @capacitor/android
-npx cap init VisaSnap com.visasnap.app --web-dir .
+npm install @capacitor/core @capacitor/cli @capacitor/ios @capacitor/android --save-dev
+```
+
+Create and open the native apps:
+
+```bash
 npx cap add ios
 npx cap add android
+npm run cap:sync
 npx cap open ios
-```
-
-For Android with Capacitor instead of TWA:
-
-```bash
 npx cap open android
 ```
 
-## Store Listing Draft
+For iOS, use a Mac with Xcode and an Apple Developer Program account. For Android, use Android Studio and a Google Play Console developer account.
 
-Name: VisaSnap
+## iOS Checklist
 
-Short description: Create passport and e-visa photos from your phone.
+- Use bundle ID `com.visasnap.phototool` unless you want a different permanent ID.
+- Set camera/photo library permission text in Xcode before archive:
+  - `NSCameraUsageDescription`: `VisaSnap uses the camera so you can take a passport or e-visa photo.`
+  - `NSPhotoLibraryUsageDescription`: `VisaSnap lets you choose a photo from your library for local passport photo cropping.`
+  - `NSPhotoLibraryAddUsageDescription`: `VisaSnap saves the finished passport photo when you choose to download or save it.`
+- Create App Store Connect app record.
+- Upload screenshots for iPhone sizes.
+- Set privacy policy URL.
+- Complete privacy labels using `store/privacy-disclosures.md`.
+- Submit first to TestFlight, then App Review.
 
-Full description:
-VisaSnap helps travelers create passport-style and e-visa photos on their device. Take or upload a photo, crop it into common visa sizes, choose a compliant background, and download a JPG for use with official visa portals. The core photo tool works offline after the first load.
+## Android Checklist
 
-Privacy summary:
-VisaSnap processes selected photos locally on the device. The core photo tool does not upload images to a server. External visa links open third-party government websites with their own policies.
+- Use application ID `com.visasnap.phototool` unless you want a different permanent ID.
+- Build a signed Android App Bundle (`.aab`) from Android Studio.
+- Upload to Play Console internal testing first.
+- Complete Data safety using `store/privacy-disclosures.md`.
+- Complete Content rating questionnaire.
+- Add store listing text from `store/play-store-listing.md`.
+- Add screenshots for phone.
+- Promote from internal testing to production when the phone photo test is approved.
 
-Categories:
-Travel, Utilities, Photo.
+## Release Rule
+
+Do not deploy the main production Netlify URL or submit store production releases until the latest phone test confirms:
+
+- Front camera photos are not mirrored after capture.
+- Photos are not brightened, sharpened, filtered, or background-replaced.
+- The app still opens offline after one online launch.

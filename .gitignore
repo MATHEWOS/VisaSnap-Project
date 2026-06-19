@@ -1,6 +1,9 @@
 # Local deployment state and generated bundles
 .netlify/
 dist/
+www/
+android/
+ios/
 
 # OS/editor noise
 Thumbs.db
