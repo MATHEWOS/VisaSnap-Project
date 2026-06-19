@@ -105,7 +105,7 @@ const state = {
   offsetX: 0,
   offsetY: 0,
   bg: "#ffffff",
-  enhanceMode: "auto",
+  enhanceMode: "off",
   size: photoSizes[0]
 };
 
@@ -325,7 +325,7 @@ function drawPhoto() {
 
 function applyPhotoEnhancements() {
   if (state.enhanceMode === "off") {
-    enhanceStatus.textContent = "Original crop mode is on. Background cleanup and enhancement are disabled.";
+    enhanceStatus.textContent = "Original mode is on. The photo is not brightened, sharpened, filtered, mirrored, or flipped.";
     return;
   }
 
@@ -347,23 +347,14 @@ function applyPhotoEnhancements() {
       if (edgeWeight > 0.72) replacedPixels += 1;
     }
 
-    const enhanced = enhancePixel(data[i], data[i + 1], data[i + 2], edgeWeight);
-    data[i] = enhanced.r;
-    data[i + 1] = enhanced.g;
-    data[i + 2] = enhanced.b;
   }
 
   ctx.putImageData(imageData, 0, 0);
-  applySharpening();
 
-  if (state.enhanceMode === "auto") {
-    const percent = Math.round((replacedPixels / (canvas.width * canvas.height)) * 100);
-    enhanceStatus.textContent = percent > 8
-      ? `Auto cleanup replaced the likely background with ${backgroundSelect.selectedOptions[0].textContent.toLowerCase()} and applied a natural photo finish.`
-      : "Auto cleanup applied a natural finish. Background replacement is subtle because the edges did not look like a plain backdrop.";
-  } else {
-    enhanceStatus.textContent = "Enhance-only mode applies a light natural finish while keeping the original background.";
-  }
+  const percent = Math.round((replacedPixels / (canvas.width * canvas.height)) * 100);
+  enhanceStatus.textContent = percent > 8
+    ? `Only the likely plain background was replaced with ${backgroundSelect.selectedOptions[0].textContent.toLowerCase()}. The face and photo detail were not enhanced.`
+    : "No strong plain background was detected. The photo was left mostly unchanged.";
 }
 
 function sampleEdgeColor(data, width, height) {
@@ -418,55 +409,6 @@ function backgroundBlendWeight(distance, tolerance) {
   if (distance >= end) return 0;
   const t = (distance - start) / (end - start);
   return 1 - smoothstep(t);
-}
-
-function enhancePixel(r, g, b, backgroundWeight) {
-  const brightnessLift = 1.5;
-  const contrast = backgroundWeight > 0.75 ? 1.0 : 1.025;
-  const saturation = backgroundWeight > 0.75 ? 0.99 : 1.01;
-  let nr = (r - 128) * contrast + 128 + brightnessLift;
-  let ng = (g - 128) * contrast + 128 + brightnessLift;
-  let nb = (b - 128) * contrast + 128 + brightnessLift;
-  const gray = nr * 0.299 + ng * 0.587 + nb * 0.114;
-
-  nr = mix(gray, nr, saturation);
-  ng = mix(gray, ng, saturation);
-  nb = mix(gray, nb, saturation);
-
-  return {
-    r: clamp(Math.round(nr), 0, 255),
-    g: clamp(Math.round(ng), 0, 255),
-    b: clamp(Math.round(nb), 0, 255)
-  };
-}
-
-function applySharpening() {
-  const original = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const source = original.data;
-  const output = ctx.createImageData(original);
-  const target = output.data;
-  const width = canvas.width;
-  const height = canvas.height;
-
-  target.set(source);
-
-  for (let y = 1; y < height - 1; y += 1) {
-    for (let x = 1; x < width - 1; x += 1) {
-      const center = (y * width + x) * 4;
-      const top = center - width * 4;
-      const bottom = center + width * 4;
-      const left = center - 4;
-      const right = center + 4;
-
-      for (let channel = 0; channel < 3; channel += 1) {
-        const sharpened = source[center + channel] * 1.16
-          - (source[top + channel] + source[bottom + channel] + source[left + channel] + source[right + channel]) * 0.04;
-        target[center + channel] = clamp(Math.round(sharpened), 0, 255);
-      }
-    }
-  }
-
-  ctx.putImageData(output, 0, 0);
 }
 
 function getPixel(data, width, x, y) {

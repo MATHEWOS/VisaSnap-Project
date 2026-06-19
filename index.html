@@ -94,9 +94,8 @@
             <label>
               Photo cleanup
               <select id="enhanceSelect">
-                <option value="auto">Auto background + natural finish</option>
-                <option value="enhance">Natural finish only</option>
-                <option value="off">Original crop</option>
+                <option value="off">Original photo (recommended)</option>
+                <option value="auto">Replace plain background only</option>
               </select>
             </label>
           </form>
@@ -109,7 +108,7 @@
         </div>
 
         <button class="download-button" id="downloadButton" type="button" disabled>Download passport photo</button>
-        <p class="fine-print" id="enhanceStatus">Auto cleanup works best with a plain wall behind you and even lighting.</p>
+        <p class="fine-print" id="enhanceStatus">Original mode keeps the photo unedited. Use background replacement only when the visa rules allow it.</p>
         <p class="fine-print">Always compare the final image with the e-visa portal's current photo rules before submitting.</p>
         <div class="monetization-panel" id="photoMonetization" hidden></div>
       </section>

@@ -445,7 +445,7 @@ input[type="range"] {
 
 #enhanceStatus {
   min-height: 18px;
-  color: var(--accent-dark);
+  color: var(--muted);
   font-weight: 800;
 }
 
